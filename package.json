@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/mpnally/pg-event-consumer/issues"
   },
-  "homepage": "https://github.com/mpnally/pg-event-consumer#readme"
+  "homepage": "https://github.com/mpnally/pg-event-consumer#readme",
+  "dependencies": {
+    "http-helper-functions": "0.0.1"
+  }
 }
