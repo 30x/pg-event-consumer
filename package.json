@@ -1,0 +1,19 @@
+{
+  "name": "pg-event-consumer",
+  "version": "0.0.1",
+  "description": "Register own IP address in pg and accept event notifications",
+  "main": "pg-event-consumer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpnally/pg-event-consumer.git"
+  },
+  "author": "Martin Nally",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/mpnally/pg-event-consumer/issues"
+  },
+  "homepage": "https://github.com/mpnally/pg-event-consumer#readme"
+}
