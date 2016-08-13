@@ -79,7 +79,12 @@ eventConsumer.prototype.processStoredEvents = function(events) {
   for (var i=0; i< events.length; i++) {
     var event = events[i];    
     console.log('processStoredEvent:', 'event:', event.index);
-    this.processedEvents.setEventMark(parseInt(event.index));
+    var index = parseInt(event.index);
+    var previouslySeen = this.processedEvents.readEventMark(index);
+    this.processedEvents.setEventMark(index);
+    if (!previouslySeen) {
+      this.clientCallback(event);
+    }  
   }
   this.processedEvents.disposeOldEvents();
 }
@@ -111,7 +116,7 @@ function BitArray(initialIndex, size) {
   this.processedEvents = new Uint16Array(size || 1000);      
   this.lastEventIndex = initialIndex-1;      // database index of last processed event. This is the database index of the (firstEventOffset - 1) entry in processedEvents
   this.highestEventIndex = initialIndex-1;   // highest database index of event processed.
-  this.firstEventOffset = 0;                 // offset in processedEvents of lastEventIndex    
+  this.firstEventOffset = 0;                 // (offset + 1) in processedEvents of lastEventIndex. Index at which the next event will land    
 }
 
 BitArray.prototype.disposeOldEvents = function() {
@@ -121,7 +126,7 @@ BitArray.prototype.disposeOldEvents = function() {
   console.log(`disposing of ${handled} events. highestEventIndex: ${this.highestEventIndex} lastEventIndex: ${this.lastEventIndex} firstEventOffset: ${this.firstEventOffset}`)
   var newFirstEventOffset = this.firstEventOffset + handled;
   if ((newFirstEventOffset + 1) / 16 > 1) { // shift entries left
-    var firstEntry = this.entryIndex(newFirstEventOffset);
+    var firstEntry = Math.floor(newFirstEventOffset / 16); 
     var lastEntry = this.entryIndex(this.highestEventIndex);
     var numberOfEntries = lastEntry - firstEntry + 1;
     console.log(`copying left: firstEntry ${firstEntry} lastEntry: ${lastEntry} numberOfEntries: ${numberOfEntries}`)
