@@ -26,7 +26,7 @@ eventConsumer.prototype.registerConsumer = function(self) {
 }
 
 eventConsumer.prototype.withEventsAfter = function(index, callback) {
-  var query = 'SELECT * FROM events WHERE index > $1';
+  var query = 'SELECT * FROM events WHERE index > $1 ORDER BY index';
   this.pool.query(query, [index], function(err, pgResult) {
     if (err) {
       console.log(`unable to retrieve events subsequent to ${index} ${err}`);      
