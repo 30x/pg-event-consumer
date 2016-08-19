@@ -20,7 +20,7 @@ eventConsumer.prototype.registerConsumer = function(self) {
     if (err) {
       console.log(`unable to register ipaddress ${self.ipaddress} ${err}`);
     } else {
-      console.log(`registered cache ${self.ipaddress} at time ${time}`)
+      console.log(`registered consumer ${self.ipaddress} at time ${time}`)
     }
   });
 }
@@ -70,7 +70,6 @@ eventConsumer.prototype.createTablesThen = function(callback) {
 }
 
 eventConsumer.prototype.processEvent = function(event) {
-  console.log(`eventConsumer.processEvent: index: ${event.index} subject: ${event.data.subject}`);
   this.processedEvents.setEventMark(event.index);
   this.clientCallback(event); 
 }
@@ -114,9 +113,9 @@ eventConsumer.prototype.init = function(callback) {
 function BitArray(initialIndex, size) {
   console.log(`initialIndex ${initialIndex}`)
   this.processedEvents = new Uint16Array(size || 1000);      
-  this.lastEventIndex = initialIndex-1;      // database index of last processed event. This is the database index of the (firstEventOffset - 1) entry in processedEvents
-  this.highestEventIndex = initialIndex-1;   // highest database index of event processed.
-  this.firstEventOffset = 0;                 // (offset + 1) in processedEvents of lastEventIndex. Index at which the next event will land    
+  this.lastEventIndex = initialIndex;      // database index of last processed event. This is the database index of the (firstEventOffset - 1) entry in processedEvents
+  this.highestEventIndex = initialIndex;   // highest database index of event processed.
+  this.firstEventOffset = 0;               // (offset + 1) in processedEvents of lastEventIndex. Index at which the next event will land    
 }
 
 BitArray.prototype.disposeOldEvents = function() {
