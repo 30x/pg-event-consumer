@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/30x/pg-event-consumer#readme",
   "dependencies": {
-    "http-helper-functions": "0.0.8"
+    "http-helper-functions": "0.0.9"
   }
 }
