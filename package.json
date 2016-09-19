@@ -1,6 +1,6 @@
 {
   "name": "pg-event-consumer",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Register own IP address in pg and accept event notifications",
   "main": "pg-event-consumer.js",
   "scripts": {
