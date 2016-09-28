@@ -1,5 +1,6 @@
 'use strict';
-var lib = require('http-helper-functions');
+const lib = require('http-helper-functions');
+const db = require('./pg-event-consumer-pg.js')
 
 var SPEEDUP = process.env.SPEEDUP || 1;
 var ONEMINUTE = 60*1000/SPEEDUP;
@@ -7,66 +8,9 @@ var TWOMINUTES = 2*60*1000/SPEEDUP;
 var TENMINUTES = 10*60*1000/SPEEDUP;
 var ONEHOUR = 60*60*1000/SPEEDUP;
 
-function eventConsumer(pool, ipaddress, clientCallback) {
-  this.pool = pool; 
+function eventConsumer(ipaddress, clientCallback) {
   this.ipaddress=ipaddress;
   this.clientCallback = clientCallback;
-}
-
-eventConsumer.prototype.registerConsumer = function(self) {
-  var time = Date.now();
-  var query = 'INSERT INTO consumers (ipaddress, registrationtime) values ($1, $2) ON CONFLICT (ipaddress) DO UPDATE SET registrationtime = EXCLUDED.registrationtime'
-  self.pool.query(query, [self.ipaddress, time], function (err, pgResult) {
-    if (err) {
-      console.log(`unable to register ipaddress ${self.ipaddress} ${err}`);
-    } else {
-      console.log(`registered consumer ${self.ipaddress} at time ${time}`)
-    }
-  });
-}
-
-eventConsumer.prototype.withEventsAfter = function(index, callback) {
-  var query = 'SELECT * FROM events WHERE index > $1 ORDER BY index';
-  this.pool.query(query, [index], function(err, pgResult) {
-    if (err) {
-      console.log(`unable to retrieve events subsequent to ${index} ${err}`);      
-    } else{
-      console.log(`retrieved events subsequent to ${index}`);      
-      callback(pgResult.rows);
-    }
-  });
-}
-
-eventConsumer.prototype.withLastEventID = function(callback) {
-  var query = 'SELECT last_value FROM events_index_seq'
-  this.pool.query(query, function(err, pgResult) {
-    if(err) {
-      console.log('error retrieving last event ID', err);
-      callback(err);
-    } else {
-      console.log('retrieved last event ID', pgResult.rows[0].last_value);
-      callback(null, parseInt(pgResult.rows[0].last_value));
-    }
-  });
-}
-
-eventConsumer.prototype.createTablesThen = function(callback) {
-  var self = this;
-  var query = 'CREATE TABLE IF NOT EXISTS events (index bigserial, topic text, eventtime bigint, data jsonb)';
-  self.pool.query(query, function(err, pgResult) {
-  if(err) {
-    console.error('error creating events table', err);
-  } else {
-    query = 'CREATE TABLE IF NOT EXISTS consumers (ipaddress text primary key, registrationtime bigint)';
-    self.pool.query(query, function(err, pgResult) {
-      if(err) {
-        console.error('error creating consumers table', err);
-      } else {
-        callback()
-      }
-    });
-    }
-  });    
 }
 
 eventConsumer.prototype.processEvent = function(event) {
@@ -76,68 +20,66 @@ eventConsumer.prototype.processEvent = function(event) {
 
 eventConsumer.prototype.processStoredEvents = function(events) {
   for (var i=0; i< events.length; i++) {
-    var event = events[i];    
-    console.log('processStoredEvent:', 'event:', event.index);
-    var index = parseInt(event.index);
-    var previouslySeen = this.processedEvents.readEventMark(index);
-    this.processedEvents.setEventMark(index);
+    var event = events[i]
+    console.log('processStoredEvent:', 'event:', event.index)
+    var index = parseInt(event.index)
+    var previouslySeen = this.processedEvents.readEventMark(index)
+    this.processedEvents.setEventMark(index)
     if (!previouslySeen) {
-      this.clientCallback(event);
+      this.clientCallback(event)
     }  
   }
-  this.processedEvents.disposeOldEvents();
+  this.processedEvents.disposeOldEvents()
 }
 
 eventConsumer.prototype.fetchStoredEvents = function(self) {
-  self.processedEvents.disposeOldEvents();
-  self.withEventsAfter(self.processedEvents.lastEventIndex, function(events){self.processStoredEvents(events)});
+  self.processedEvents.disposeOldEvents()
+  db.withEventsAfter(self.processedEvents.lastEventIndex, function(events){self.processStoredEvents(events)})
 }
 
 eventConsumer.prototype.init = function(callback) {
-  var self = this;
-  self.createTablesThen(function(){
-    self.withLastEventID(function(err, id) {
-      if (err) {
-        console.log('unable to get last value of event ID')
-      } else {
-        self.processedEvents = new BitArray(id, 1000);
-        self.registerConsumer(self);
-        setInterval(self.registerConsumer, ONEMINUTE, self);
-        setInterval(self.fetchStoredEvents, TWOMINUTES, self);
-        callback();
-      }
-    });  
-  });
+  var self = this
+  db.withLastEventID(function(err, id) {
+    if (err)
+      console.log('unable to get last value of event ID')
+    else {
+      self.processedEvents = new BitArray(id, 1000);
+      db.registerConsumer(self)
+      setInterval(db.registerConsumer, ONEMINUTE, self)
+      setInterval(self.fetchStoredEvents, TWOMINUTES, self)
+      callback()
+    }
+  })
 }
 
 function BitArray(initialIndex, size) {
   console.log(`initialIndex ${initialIndex}`)
-  this.processedEvents = new Uint16Array(size || 1000);      
-  this.lastEventIndex = initialIndex;      // database index of last processed event. This is the database index of the (firstEventOffset - 1) entry in processedEvents
-  this.highestEventIndex = initialIndex;   // highest database index of event processed.
-  this.firstEventOffset = 0;               // (offset + 1) in processedEvents of lastEventIndex. Index at which the next event will land    
+  this.processedEvents = new Uint16Array(size || 1000)  
+  this.lastEventIndex = initialIndex      // database index of last processed event. This is the database index of the (firstEventOffset - 1) entry in processedEvents
+  this.highestEventIndex = initialIndex   // highest database index of event processed.
+  this.firstEventOffset = 0               // (offset + 1) in processedEvents of lastEventIndex. Index at which the next event will land    
 }
 
 BitArray.prototype.disposeOldEvents = function() {
-  var index = this.lastEventIndex + 1;
-  var handled = 0;
-  while (this.readEventMark(index+handled)) {handled++;}
+  var index = this.lastEventIndex + 1
+  var handled = 0
+  while (this.readEventMark(index+handled)) {handled++}
   console.log(`disposing of ${handled} events. highestEventIndex: ${this.highestEventIndex} lastEventIndex: ${this.lastEventIndex} firstEventOffset: ${this.firstEventOffset}`)
-  var newFirstEventOffset = this.firstEventOffset + handled;
+  var newFirstEventOffset = this.firstEventOffset + handled
   if ((newFirstEventOffset + 1) / 16 > 1) { // shift entries left
-    var firstEntry = Math.floor(newFirstEventOffset / 16); 
-    var lastEntry = this.entryIndex(this.highestEventIndex);
-    var numberOfEntries = lastEntry - firstEntry + 1;
+    var firstEntry = Math.floor(newFirstEventOffset / 16)
+    var lastEntry = this.entryIndex(this.highestEventIndex)
+    var numberOfEntries = lastEntry - firstEntry + 1
     console.log(`copying left: firstEntry ${firstEntry} lastEntry: ${lastEntry} numberOfEntries: ${numberOfEntries}`)
-    this.processedEvents.copyWithin(0, firstEntry, lastEntry+1);
+    this.processedEvents.copyWithin(0, firstEntry, lastEntry+1)
     for (var i = numberOfEntries; i <= lastEntry; i++) {
-      this.processedEvents[i] = 0;
+      this.processedEvents[i] = 0
     }
-    this.firstEventOffset = newFirstEventOffset % 16;
+    this.firstEventOffset = newFirstEventOffset % 16
   } else {
-    this.firstEventOffset = newFirstEventOffset;
+    this.firstEventOffset = newFirstEventOffset
   }
-  this.lastEventIndex += handled;
+  this.lastEventIndex += handled
 }
 
 BitArray.prototype.bitIndex = function(index) {
@@ -145,13 +87,13 @@ BitArray.prototype.bitIndex = function(index) {
 }
 
 BitArray.prototype.entryIndex = function(index) {
-  return Math.floor((index - this.lastEventIndex - 1 + this.firstEventOffset) / 16);
+  return Math.floor((index - this.lastEventIndex - 1 + this.firstEventOffset) / 16)
 }
 
 BitArray.prototype.readEventMark = function(index) {
-  var bitInx = this.bitIndex(index);
-  var entryInx = this.entryIndex(index);
-  var entry = this.processedEvents[entryInx];
+  var bitInx = this.bitIndex(index)
+  var entryInx = this.entryIndex(index)
+  var entry = this.processedEvents[entryInx]
   return (entry >> bitInx) & 1 ? true : false
 }
 
