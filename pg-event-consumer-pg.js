@@ -46,7 +46,7 @@ function withLastEventID(callback) {
   })
 }
 
-function init() {
+(function init() {
   var query = 'CREATE TABLE IF NOT EXISTS events (index bigserial, topic text, eventtime bigint, data jsonb)';
   pool.query(query, function(err, pgResult) {
     if(err) 
@@ -55,13 +55,13 @@ function init() {
       query = 'CREATE TABLE IF NOT EXISTS consumers (ipaddress text primary key, registrationtime bigint)';
       pool.query(query, function(err, pgResult) {
       if(err) 
-        console.error('error creating consumers table', err);
+        console.error('error creating consumers table', err)
       else
-        callback()
+        console.log('event and consumers tables created or already present', err)
       })
     }
   })   
-}
+})()
 
 exports.registerConsumer = registerConsumer
 exports.withEventsAfter = withEventsAfter
