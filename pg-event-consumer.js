@@ -1,5 +1,4 @@
 'use strict';
-const lib = require('http-helper-functions');
 const db = require('./pg-event-consumer-pg.js')
 
 var SPEEDUP = process.env.SPEEDUP || 1;
