@@ -18,17 +18,25 @@ eventConsumer.prototype.processEvent = function(event) {
 }
 
 eventConsumer.prototype.processStoredEvents = function(events) {
-  for (var i=0; i< events.length; i++) {
-    var event = events[i]
-    console.log('processStoredEvent:', 'event:', event.index)
-    var index = parseInt(event.index)
-    var previouslySeen = this.processedEvents.readEventMark(index)
-    this.processedEvents.setEventMark(index)
-    if (!previouslySeen) {
-      this.clientCallback(event)
-    }  
+  if (events.length > 0) {
+    if (events[0].index - 1 != this.processedEvents.lastEventIndex) {
+      // we have missed an event that cannot be recovered from the database. We need to reinitialize
+      console.log('Alert!!:processStoredEvents: gap in event trail')
+      self.processedEvents = new BitArray(events[0].index - 1, 1000);
+      this.clientCallback({topic: 'eventGapDetected'})
+    }
+    for (var i=0; i< events.length; i++) {
+      var event = events[i]
+      console.log('processStoredEvent:', 'event:', event.index)
+      var index = parseInt(event.index)
+      var previouslySeen = this.processedEvents.readEventMark(index)
+      this.processedEvents.setEventMark(index)
+      if (!previouslySeen) {
+        this.clientCallback(event)
+      }  
+    }
+    this.processedEvents.disposeOldEvents()
   }
-  this.processedEvents.disposeOldEvents()
 }
 
 eventConsumer.prototype.fetchStoredEvents = function(self) {
