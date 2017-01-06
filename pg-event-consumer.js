@@ -21,8 +21,8 @@ eventConsumer.prototype.processStoredEvents = function(events) {
   if (events.length > 0) {
     if (events[0].index - 1 != this.processedEvents.lastEventIndex) {
       // we have missed an event that cannot be recovered from the database. We need to reinitialize
-      console.log('Alert!!:processStoredEvents: gap in event trail')
-      self.processedEvents = new BitArray(events[0].index - 1, 1000);
+      console.log(`Alert!!:processStoredEvents: gap in event trail. processedEvents.lastEventIndex: ${this.processedEvents.lastEventIndex} events[0].index: ${events[0].index}`)
+      this.processedEvents = new BitArray(events[0].index - 1, 1000);
       this.clientCallback({topic: 'eventGapDetected'})
     }
     for (var i=0; i< events.length; i++) {
