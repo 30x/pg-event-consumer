@@ -49,12 +49,12 @@ function withLastEventID(callback) {
 (function init() {
   var query = 'CREATE TABLE IF NOT EXISTS events (index bigserial, topic text, eventtime bigint, data jsonb)'
   pool.query(query, function(err, pgResult) {
-    if(err && err.code != 23505)
+    if(err && err.code != '23505' && err.code != '42P07')
       console.error('error creating events table', err)
     else {
       query = 'CREATE TABLE IF NOT EXISTS consumers (ipaddress text primary key, registrationtime bigint)'
       pool.query(query, function(err, pgResult) {
-        if(err && err.code != 23505)
+        if(err && err.code != '23505' && err.code != '42P07')
           console.error('error creating consumers table', err)
         else
           console.log('event and consumers tables created or already present', err)
